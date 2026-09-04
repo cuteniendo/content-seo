@@ -14,6 +14,13 @@ description: Pulls ranking and opportunity keywords for a client site using Data
 
 ## Steps
 
+**DataForSEO responses are verbose.** `dataforseo_labs_google_ranked_keywords`
+and similar endpoints can exceed the output token limit even at a `limit`
+of 50 — each keyword carries a large nested object (SERP info, backlink
+averages, monthly trend history). Keep `limit` around 10-15 per call and
+make more calls rather than one large one; don't assume a bigger limit is
+more efficient, it just fails outright past a certain size.
+
 ### 1. Keywords already ranking
 
 Use DataForSEO Labs to find what the domain already ranks for:
@@ -27,7 +34,24 @@ Use DataForSEO Labs to find what the domain already ranks for:
 Around each core topic/service/product from the client brief:
 - `dataforseo_labs_google_keyword_ideas` and
   `dataforseo_labs_google_related_keywords` / `_keyword_suggestions` to
-  expand the seed list.
+  expand the seed list. **Sort by relevance (the default), not by volume.**
+  Sorting by volume on `keyword_ideas` surfaces the whole broad category the
+  seed belongs to, not the seed's actual topic — e.g. seeding on narrow
+  credit-repair service terms and sorting by volume returned car loans,
+  federal court searches, and term deposits, because they share the same
+  broad "credit/finance" category. Relevance sort stays on-topic; volume
+  sort doesn't.
+- For a specific, curated candidate list (e.g. exact service names, or
+  service+city combos), `kw_data_google_ads_search_volume` gives precise
+  volume/competition per keyword without the category-expansion drift.
+  Prefer it over `keyword_ideas` once you have concrete candidates in mind,
+  not just seed topics to explore from.
+- A keyword returning **zero data** from `kw_data_google_ads_search_volume`
+  isn't necessarily zero real demand — aggregate keyword tools routinely
+  under-report exact multi-word combinations, especially service+location
+  pairs (`credit repair sydney` returned nothing despite the client having
+  a dedicated Sydney page). Don't treat a zero as "no opportunity" for
+  location pages specifically; note it as a tooling gap instead.
 - `dataforseo_labs_google_serp_competitors` and
   `dataforseo_labs_google_competitors_domain` to see what competitor domains
   (from the brief, or discovered here) rank for that the client doesn't.
