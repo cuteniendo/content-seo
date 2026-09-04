@@ -7,13 +7,15 @@ User: "Create blog content for acme.com, 20 posts"
 [blog-content-pipeline]  (orchestrator — reads count, delegates below)
         │
         ▼
-[1] client-intake ────────────► Derive name variants from URL
-        │                       Search Drive: title-match first, full-text
-        │                       second (kept as "unconfirmed")
-        │                       Show grouped matches → user confirms
-        │                         ├─ Brand & Voice found → use it
-        │                         └─ not found → ask user directly (no block)
-        │                       Diff live site vs. latest snapshot doc found
+[1] client-intake ────────────► Claude in Chrome opens claude.ai/projects
+        │                       Find matching project, open it
+        │                       get_page_text → Instructions + Memory + file list
+        │                       Open priority files (brand, positioning,
+        │                       SEO plan, existing topics, latest snapshot)
+        │                       Show summary → user confirms
+        │                         ├─ voice/tone documented → use it
+        │                         └─ not documented → ask user directly
+        │                       Diff live site vs. latest snapshot/Memory
         ▼
    output/<client>/client-brief.md
         │
@@ -58,9 +60,11 @@ User: "Create blog content for acme.com, 20 posts"
 
 ## Decision points that require the user
 
-- **Phase 1**: confirm the grouped Drive match list is the right client
-  before any file content is read or used; supply brand voice/tone directly
-  if no Brand & Voice doc was found.
+- **Phase 1**: confirm the matched Cowork project is the right one before
+  building the brief; supply brand voice/tone directly if it isn't
+  documented anywhere in the project (common even for established clients —
+  a Brand Guidelines doc can cover colors/logo while leaving tone
+  undocumented).
 - **Phase 6**: whether to overwrite an existing delivery folder for the same
   client/date.
 

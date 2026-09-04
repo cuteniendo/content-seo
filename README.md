@@ -11,9 +11,10 @@ You give Claude one input: a client name or a live website URL, and
 phases in order:
 
 1. **Client Intake** ([skills/01-client-intake](skills/01-client-intake/SKILL.md))
-   Checks whether a Cowork project already exists for this client. If yes,
-   pulls its stored context. If no, helps you create one. Also re-checks the
-   live URL against what Cowork has on file and flags anything that changed.
+   Opens the matching Cowork project directly in your real Chrome (via
+   Claude in Chrome) and reads its Instructions, Memory, and knowledge files.
+   Also re-checks the live URL against what's on file and flags anything
+   that changed.
 2. **Keyword Research** ([skills/02-keyword-research](skills/02-keyword-research/SKILL.md))
    Uses DataForSEO to find keywords the site already ranks for and new
    keyword opportunities around the client's topics.
@@ -38,7 +39,10 @@ after editing a draft by hand).
 
 - Claude Code with this repo cloned/available in the working directory.
 - A DataForSEO MCP connection authorized for keyword data.
-- A Google Drive MCP connection authorized for client document lookups.
+- The **Claude in Chrome** browser extension installed and connected to your
+  claude.ai account — Phase 1 reads Cowork project context by driving your
+  real, logged-in Chrome (there's no API for Claude Projects). One-time
+  setup; every pipeline run reuses the same logged-in session.
 - The `content-qa-checker-v2` skill available (ships with this account).
 
 ## Setup
@@ -73,15 +77,13 @@ blog-content-pipeline/
 ## Notes / assumptions
 
 - "Cowork" is the **Projects** list under the **Chat and Cowork** tab in the
-  Claude desktop app, but there's no MCP/API access to that list from a
-  Code-tab session. In practice, the real per-client research (audits,
-  action plans, content calendars) lives in **Google Drive**, named per
-  client but not foldered per client — so Phase 1 searches Drive by client
-  name/URL instead of browsing a project. See
-  [skills/01-client-intake](skills/01-client-intake/SKILL.md) for the exact
-  matching and confirmation flow. If a client's context turns out to live
-  only inside a Cowork project's native knowledge (not Drive), you'll need
-  to paste it in manually — the skill will tell you when nothing turns up.
+  Claude desktop app. There's no API for it, so Phase 1 reads it by driving
+  your real Chrome (Claude in Chrome) to `claude.ai/projects`, opening the
+  matching project, and reading its Instructions, Memory, and knowledge
+  files directly off the page — validated end to end against a real project
+  (Instructions, Memory, and both Drive-linked and directly-uploaded files
+  all came through). See [skills/01-client-intake](skills/01-client-intake/SKILL.md)
+  for the exact matching, file-priority, and confirmation flow.
 - Keyword data comes from DataForSEO (already connected), not SE Ranking.
   Swap [skills/02-keyword-research](skills/02-keyword-research/SKILL.md) if
   you later authorize a different provider.

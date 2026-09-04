@@ -1,135 +1,142 @@
 ---
 name: client-intake
-description: Given a client URL or name, searches Google Drive for that client's existing project documents (audits, brand/voice notes, action plans, etc.), shows the user a grouped match list to confirm, then builds a client brief from the confirmed files plus a live-site diff. Trigger as phase 1 of the blog content pipeline, or standalone when the user asks "find the project docs for [client/URL]", "does [client] already have research on file", or "check the live site for changes since we last worked on it".
+description: Given a client URL or name, opens the matching Cowork project directly in the user's real Chrome (via Claude in Chrome), reads its Instructions, Memory, and knowledge files, shows a summary to confirm, then builds a client brief plus a live-site diff. Trigger as phase 1 of the blog content pipeline, or standalone when the user asks "find the project context for [client/URL]", "does [client] already have research on file", or "check the live site for changes since we last worked on it".
 ---
 
 # Client Intake
 
-There is no API into the Claude Projects/Cowork UI from this session. What
-*is* reachable and, in practice, holds the real per-client research (audits,
-action plans, content calendars, brand notes) is the Google Drive connector,
-where documents are named per-client but sit loose in "My Drive" — there is
-no one folder per client to just open and read. So intake works by searching
-Drive by name, not by browsing a project.
+## How this actually works
+
+There is no API for Claude Projects/Cowork. What works, proven against a
+real project, is **browser automation against the user's own logged-in
+Chrome** via the Claude in Chrome tools (`mcp__claude-in-chrome__*`) — not
+the sandboxed in-app Browser. This requires the Claude in Chrome extension
+to already be installed and connected to the user's claude.ai account; if
+`tabs_context_mcp` or `navigate` fail outright, tell the user that's missing
+and stop rather than falling back to guessing.
+
+If these tools show as deferred, load them first in one call:
+`ToolSearch("select:mcp__claude-in-chrome__tabs_context_mcp,mcp__claude-in-chrome__navigate,mcp__claude-in-chrome__computer,mcp__claude-in-chrome__read_page,mcp__claude-in-chrome__get_page_text,mcp__claude-in-chrome__find,mcp__claude-in-chrome__browser_batch,mcp__claude-in-chrome__tabs_close_mcp")`.
+Batch steps with `browser_batch` wherever the next click/screenshot is
+predictable — it's much faster than one call per action.
 
 ## Inputs
 
-- A live URL and/or a client/brand name from the user. If only a URL is
-  given, derive candidate name variants before searching (see step 1).
+- A live URL and/or a client/brand name from the user.
 
 ## Steps
 
-### 1. Derive search terms
+### 1. Open Projects and find the match
 
-From the URL, generate variants to search for, e.g. for `islandroute.io`:
-`islandroute`, `island route`, `Island Route`, `IslandRoute.io`. If the user
-gave a brand name directly, use that too. Bad variants (too short, too
-generic — e.g. a 3-4 letter fragment that could match unrelated files) will
-just produce noisy results the next step filters out; don't over-engineer
-this, a handful of reasonable variants is enough.
+`tabs_context_mcp{createIfEmpty:true}` → `navigate` to
+`https://claude.ai/projects` on that tab. Use the page's own search (the
+search icon near "Sort by") with the domain first, then the brand name, if
+scanning card titles directly isn't conclusive — project cards are commonly
+titled `<Code/Client> - <URL>` (e.g. `KEWYN - https://islandroute.io/`) but
+not always; some have no URL in the title at all.
 
-### 2. Search Drive, title first
+If more than one project plausibly matches, or nothing matches, don't guess
+— show the candidates (or the no-match result) to the user and ask.
 
-Use `search_files` with a **title-only** query across the name variants,
-e.g. `title contains 'Island Route' or title contains 'IslandRoute'`. These
-are the high-confidence matches — a real client's documents are consistently
-named with the client name.
+### 2. Open the project and read Instructions + Memory
 
-Then run a **second, full-text** search (`fullText contains` the same
-variants) to catch documents that mention the client without naming it in
-the title. Full-text search is noisy — a fuzzy match can surface completely
-unrelated files (e.g. a furniture landing page mockup matched on an unlucky
-substring). Keep full-text-only hits in a clearly separate "possible,
-unconfirmed" bucket; never merge them into the confirmed list silently.
+Click into the matched project. Immediately run
+`get_page_text` on the main tab — this single call returns the full
+**Instructions** and **Memory** text in one shot (both render inline on the
+project page; no separate click needed), plus the titles/sizes/type-badges
+of every Context file. Do this even if the window looks too narrow to show
+a sidebar — Instructions/Memory/Context render lower on the page in a
+single column at narrow widths, `get_page_text` still captures all of it.
 
-### 3. Categorize matches
+Read Memory and Instructions in full — for an established client this is
+often the richest source of brand/tone/operational context available
+(team structure, known issues, brand colors, style rules, tools in use).
 
-Sort matches (title matches first, then full-text-only) into buckets by
-title keywords:
+### 3. Prioritize which Context files to actually open
 
-- **Brand & Voice** — "brand", "voice", "tone", "style guide"
-- **Positioning / T.O.P.** — "T.O.P", "TOP Audit", "positioning"
-- **SEO Action Plan** — "SEO Action Plan", "action plan"
-- **Technical Audit** — "technical audit", "site audit"
-- **Analytics / GSC** — "GSC", "search console", "analytics"
-- **Backlinks** — "backlink", "disavow"
-- **Content Calendar** — "content calendar"
-- **Status / Snapshot** — "status", "clean sheet", "snapshot" (often the
-  most recent consolidated view — prioritize reading this one if present)
-- **Other** — anything else that matched but doesn't fit above
+Don't open all of them — an established project can have 30+ files.
+Open, in this priority order, whatever exists (title-match on keywords):
 
-De-duplicate obvious repeats (same title, multiple IDs, e.g. an "(old)"
-export sitting alongside a live sheet) — keep the most recently modified and
-note the duplicate rather than silently dropping it.
+1. Brand voice/guidelines doc ("brand", "guidelines", "voice", "tone")
+2. Positioning/audit doc ("T.O.P", "positioning")
+3. SEO strategy/action plan ("SEO Action Plan", "SEO Strategy")
+4. Existing blog topic list / content calendar ("blog topics", "content
+   calendar") — check this before Phase 3 clustering, so new topics don't
+   duplicate ones already planned or already covered
+5. Most recent status/snapshot doc ("status", "snapshot", "clean sheet")
 
-### 4. Show the user a grouped list and wait for confirmation
+List everything else found (technical audits, task files, trackers,
+competitor research, raw CSV/XLSX exports) in the brief by title only,
+without opening them — later phases can ask for a specific one by name if
+they need it.
 
-Present the categorized list (title, last modified date, and which bucket)
-and explicitly flag:
-- Which expected categories have **no match** — most importantly **Brand &
-  Voice**, since content generation later needs it.
-- Anything sitting in the "possible, unconfirmed" full-text-only bucket.
+To open a file: click its card, then `find` for the resulting "file preview
+... dialog" to get its ref, then `read_page` scoped to that `ref_id`
+(`max_chars` up to ~50000 — most single docs fit). Table cells can truncate
+around ~80-100 characters in this view; if a truncated cell matters, re-open
+and check it specifically rather than guessing the rest of the line.
+`Escape` closes the preview before opening the next file.
 
-Ask: **"Is this the right client, and should I use these files?"** Do not
-read full file contents or proceed to building the brief until the user
-confirms. If they say a match is wrong (wrong client, stale duplicate,
-irrelevant), drop it and don't use it.
+### 4. Show the user a summary and wait for confirmation
 
-### 5. Handle a missing Brand & Voice doc
+Before writing anything to the brief, show the user:
+- Which project was opened (name + URL)
+- One or two lines each from Instructions/Memory that materially matter
+  (brand colors, tone rules, known blockers)
+- The prioritized files actually opened, and a one-line takeaway from each
+- Everything else found but not opened (by title)
+- Anything expected but missing — most importantly, whether brand
+  voice/tone is actually documented anywhere (it may not be — a Brand
+  Guidelines doc can cover colors/logo/type while explicitly leaving
+  voice/tone undocumented, as with Island Route)
 
-If no Brand & Voice document was found (and confirmed), **always ask the
-user directly** for brand voice/tone, audience, and positioning before
-continuing — do not infer it silently from other audit docs, and do not
-block the whole pipeline waiting for one to be created. Record whatever the
-user gives you in the brief, and note that it came from the user directly
-rather than an existing document.
+Ask: **"Is this the right project, and should I proceed with this?"** Don't
+build the brief or move to Phase 2 until confirmed.
 
-### 6. Read the confirmed files and extract
+### 5. Handle missing brand voice/tone
 
-For each confirmed file, use `read_file_content` (or `download_file_content`
-for non-native formats) to pull:
-- Brand name, voice/tone, audience/ICP, products/services (from Brand &
-  Voice / T.O.P. docs, or from the user per step 5)
-- Prior findings: technical issues, backlink status, keyword/traffic
-  snapshot, AI-visibility notes — anything a "Status/Snapshot" doc
-  summarizes is usually the fastest way to get this
-- Existing content inventory (titles/URLs), if a content calendar or audit
-  lists them
-- Competitors already on file, if noted anywhere
+If voice/tone isn't documented anywhere in what was opened, **always ask
+the user directly** for it before continuing — don't infer it from
+unrelated docs, and don't block the whole pipeline waiting for someone to
+write a formal doc. Record what the user gives you and note it came from
+them directly.
 
-### 7. Diff the live site
+### 6. Diff the live site
 
-Fetch the live URL (WebFetch or Firecrawl scrape/map) and compare against
-the most recent Status/Snapshot doc, if one was found:
-- New pages, services, or products not reflected in the snapshot
+Fetch the live URL (WebFetch or Firecrawl) and compare against the most
+recent status/snapshot doc opened in step 3, or against Memory's "current
+state" notes if no dedicated snapshot doc exists:
+- New pages, services, or products not reflected there
 - Changed pricing, positioning, or messaging
-- New or removed blog/resource content
-- Issues the snapshot flagged as "needs fix" — check if they're still live
-  (the Island Route example above is a real case of this: a fix marked
-  "COMPLETE" in a tracker but not actually deployed)
+- Issues noted as fixed/complete that a live check shows are still broken —
+  this is a real, recurring pattern worth checking specifically (Memory
+  content for one active project explicitly warns: *"Never trust tracker
+  status at face value... this pattern has caught real errors repeatedly"*)
 
-If no prior snapshot exists, skip the diff and record the current state as
-the baseline.
+If nothing to diff against, record the current state as the baseline.
 
-### 8. Write the client brief
+### 7. Write the client brief
 
 Save `output/<client-slug>/client-brief.md`:
-- Client name, URL
-- Source documents used (title + Drive link for each)
-- Brand voice/tone, audience/ICP, products/services
+- Client name, URL, Cowork project name
+- Brand voice/tone, audience/ICP, products/services, brand colors/visual
+  rules if documented
+- Operational constraints worth respecting in generated content (tone
+  rules, banned punctuation/phrasing, formatting rules — Memory/Instructions
+  often state these explicitly)
 - Competitors on file
-- Existing content inventory
-- Prior findings relevant to new content (avoid topics/claims that
-  contradict a known unresolved issue, e.g. don't write a post pointing to a
-  broken page)
-- Live-site diff findings from step 7 (or "no prior snapshot — baseline
-  recorded")
-- Any info gathered directly from the user because no document had it
+- Existing content inventory / already-planned topics (from step 3.4) —
+  Phase 3 clustering must avoid these
+- Known unresolved issues relevant to new content (don't write a post that
+  points at something currently broken)
+- Live-site diff findings from step 6
+- Files seen but not opened (by title, for later reference)
+- Anything gathered directly from the user because no document had it
 
 Use `<client-slug>` = the client name, lowercased, spaces to hyphens.
 
 ## Output
 
-`output/<client-slug>/client-brief.md`. Report to the user: which documents
-were used, what (if anything) came from them directly instead of a
-document, and a one-line summary of the live-site diff.
+`output/<client-slug>/client-brief.md`. Report to the user: which project
+was used, which files were actually read, and a one-line live-site diff
+summary.
