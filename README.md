@@ -69,6 +69,8 @@ blog-content-pipeline/
     05-qa-review/
     06-delivery/
   templates/                 # brief / draft / QA scorecard templates
+  scripts/
+    md_to_docx.py            # Phase 6: markdown draft -> Word doc (python-docx)
   docs/
     WORKFLOW.md              # detailed flow + decision points
   output/                    # created at runtime per client, gitignored
