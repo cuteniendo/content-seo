@@ -77,6 +77,20 @@ around ~80-100 characters in this view; if a truncated cell matters, re-open
 and check it specifically rather than guessing the rest of the line.
 `Escape` closes the preview before opening the next file.
 
+**PDF uploads are a real exception, not a variant of the above.** A native
+`.docx`/`.md` upload renders as full scrollable text — `read_page` on the
+dialog gets the whole document. A native **PDF** upload instead renders as
+a single cover-page thumbnail image with a Download link, no in-app
+pagination — `read_page`/`get_page_text` on it return nothing useful past
+the dialog chrome. The only way to get anything out of it through the
+browser is `zoom` on the visible thumbnail region, which reads whatever
+that one page happens to show (a cover page or table of contents is common
+— rarely the actual content). **Don't report a PDF as "read" when only its
+cover was visible** — say plainly in the brief which pages were seen, and
+that the rest wasn't recoverable this way. If a PDF's content actually
+matters for the brief, ask the user to paste the relevant section, or to
+re-upload it as `.docx`/`.md` so future runs can read it properly.
+
 ### 4. Show the user a summary and wait for confirmation
 
 Before writing anything to the brief, show the user:
