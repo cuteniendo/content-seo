@@ -72,11 +72,13 @@ blog-content-pipeline/
 
 ## Notes / assumptions
 
-- "Cowork" is treated as Claude's Projects/Cowork feature — each client has
-  (or gets) its own project holding brand context, prior audits, and content
-  history. This session has no direct Cowork API, so the intake skill checks
-  by asking you to confirm/open the relevant Cowork project, or by using the
-  `setup-cowork` skill to create one.
+- "Cowork" is the **Projects** list under the **Chat and Cowork** tab in the
+  Claude desktop app — each client has (or gets) its own project card, often
+  named `<Client> - <URL>`, whose description and pinned content are the
+  brand/audience source of truth. There's no MCP/API access to that list
+  from a Code-tab session, so Phase 1 has you open the matching project and
+  paste its relevant content into chat, or uses the `setup-cowork` skill to
+  create a new one following the same naming convention.
 - Keyword data comes from DataForSEO (already connected), not SE Ranking.
   Swap [skills/02-keyword-research](skills/02-keyword-research/SKILL.md) if
   you later authorize a different provider.

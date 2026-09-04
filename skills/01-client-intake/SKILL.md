@@ -13,22 +13,42 @@ description: Resolves a client's Cowork project (finds an existing one or helps 
 
 ### 1. Find or confirm the Cowork project
 
-Ask the user directly if you don't already know: **"Is there already a
-Cowork project for [client/URL]?"** Don't guess — a wrong guess here poisons
-every later phase with the wrong brand voice or audience.
+"Cowork" = the **Projects** list under the **Chat and Cowork** tab in the
+Claude desktop app (as opposed to the **Code** tab this pipeline runs in).
+There is no MCP/API access to that list from here, so this step is a
+conversational handoff with the user, not something to query automatically.
 
-- **If yes**: have the user open/name it, or point you at it. Pull from it:
+Ask the user directly: **"Is there already a Cowork project for
+[client/URL]?"** Don't guess — a wrong guess here poisons every later phase
+with the wrong brand voice or audience. To help them check:
+
+- Existing project cards are usually named `<Client/Code> - <live URL>`
+  (e.g. `KEWYN - https://islandroute.io/`), though older ones may just use a
+  client or team name with no URL. Have the user search Projects for the
+  domain first, then the client name, before concluding none exists.
+- A project's card description is its brief — e.g. "This Claude project
+  serves as the single source of truth for SEO strategy, content creation,
+  and brand-aligned messaging for [client]..."
+
+- **If found**: ask the user to open it and paste back into this chat
+  whatever's needed: the project description, and any pinned brand/voice
+  docs, prior content, competitor notes, or site snapshots it holds. Pull
+  from what they paste:
   - Brand name, voice/tone, tagline
   - Target audience / ICP
   - Products or services offered
   - Existing content (blog posts, service pages) already published
   - Competitors already on file
   - Prior SEO/audit findings if any
-  - The last-known snapshot of the site (sitemap, key pages) if Cowork has
-    one, and when it was captured
-- **If no**: tell the user there's no existing project and offer to set one
-  up with the `setup-cowork` skill before continuing. If they'd rather skip
-  that and just proceed, gather the same fields above directly from them by
+  - The last-known snapshot of the site (sitemap, key pages), and when it
+    was captured
+- **If not found**: tell the user there's no existing project and offer to
+  create one with the `setup-cowork` skill before continuing. If they
+  create one, suggest naming it `<Client Name> - <URL>` to match the
+  existing convention, and writing a description in the same
+  single-source-of-truth style as the examples above, so future runs of
+  this pipeline can find it by name or URL. If they'd rather skip Cowork
+  entirely and just proceed, gather the same fields above directly by
   asking — do not fabricate brand voice or audience. At minimum you need:
   brand name, what they sell, who they sell to, and tone.
 
