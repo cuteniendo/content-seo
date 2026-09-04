@@ -1,92 +1,135 @@
 ---
 name: client-intake
-description: Resolves a client's Cowork project (finds an existing one or helps create a new one), captures brand/audience context, and diffs the live website against what Cowork has on file to flag updates. Trigger as phase 1 of the blog content pipeline, or standalone when the user asks "does website X already have a Cowork project", "check if this client is already set up", or "check the live site for changes since we last worked on it".
+description: Given a client URL or name, searches Google Drive for that client's existing project documents (audits, brand/voice notes, action plans, etc.), shows the user a grouped match list to confirm, then builds a client brief from the confirmed files plus a live-site diff. Trigger as phase 1 of the blog content pipeline, or standalone when the user asks "find the project docs for [client/URL]", "does [client] already have research on file", or "check the live site for changes since we last worked on it".
 ---
 
-# Client Intake & Cowork Check
+# Client Intake
+
+There is no API into the Claude Projects/Cowork UI from this session. What
+*is* reachable and, in practice, holds the real per-client research (audits,
+action plans, content calendars, brand notes) is the Google Drive connector,
+where documents are named per-client but sit loose in "My Drive" — there is
+no one folder per client to just open and read. So intake works by searching
+Drive by name, not by browsing a project.
 
 ## Inputs
 
-- A live URL and/or a client name from the user.
+- A live URL and/or a client/brand name from the user. If only a URL is
+  given, derive candidate name variants before searching (see step 1).
 
 ## Steps
 
-### 1. Find or confirm the Cowork project
+### 1. Derive search terms
 
-"Cowork" = the **Projects** list under the **Chat and Cowork** tab in the
-Claude desktop app (as opposed to the **Code** tab this pipeline runs in).
-There is no MCP/API access to that list from here, so this step is a
-conversational handoff with the user, not something to query automatically.
+From the URL, generate variants to search for, e.g. for `islandroute.io`:
+`islandroute`, `island route`, `Island Route`, `IslandRoute.io`. If the user
+gave a brand name directly, use that too. Bad variants (too short, too
+generic — e.g. a 3-4 letter fragment that could match unrelated files) will
+just produce noisy results the next step filters out; don't over-engineer
+this, a handful of reasonable variants is enough.
 
-Ask the user directly: **"Is there already a Cowork project for
-[client/URL]?"** Don't guess — a wrong guess here poisons every later phase
-with the wrong brand voice or audience. To help them check:
+### 2. Search Drive, title first
 
-- Existing project cards are usually named `<Client/Code> - <live URL>`
-  (e.g. `KEWYN - https://islandroute.io/`), though older ones may just use a
-  client or team name with no URL. Have the user search Projects for the
-  domain first, then the client name, before concluding none exists.
-- A project's card description is its brief — e.g. "This Claude project
-  serves as the single source of truth for SEO strategy, content creation,
-  and brand-aligned messaging for [client]..."
+Use `search_files` with a **title-only** query across the name variants,
+e.g. `title contains 'Island Route' or title contains 'IslandRoute'`. These
+are the high-confidence matches — a real client's documents are consistently
+named with the client name.
 
-- **If found**: ask the user to open it and paste back into this chat
-  whatever's needed: the project description, and any pinned brand/voice
-  docs, prior content, competitor notes, or site snapshots it holds. Pull
-  from what they paste:
-  - Brand name, voice/tone, tagline
-  - Target audience / ICP
-  - Products or services offered
-  - Existing content (blog posts, service pages) already published
-  - Competitors already on file
-  - Prior SEO/audit findings if any
-  - The last-known snapshot of the site (sitemap, key pages), and when it
-    was captured
-- **If not found**: tell the user there's no existing project and offer to
-  create one with the `setup-cowork` skill before continuing. If they
-  create one, suggest naming it `<Client Name> - <URL>` to match the
-  existing convention, and writing a description in the same
-  single-source-of-truth style as the examples above, so future runs of
-  this pipeline can find it by name or URL. If they'd rather skip Cowork
-  entirely and just proceed, gather the same fields above directly by
-  asking — do not fabricate brand voice or audience. At minimum you need:
-  brand name, what they sell, who they sell to, and tone.
+Then run a **second, full-text** search (`fullText contains` the same
+variants) to catch documents that mention the client without naming it in
+the title. Full-text search is noisy — a fuzzy match can surface completely
+unrelated files (e.g. a furniture landing page mockup matched on an unlucky
+substring). Keep full-text-only hits in a clearly separate "possible,
+unconfirmed" bucket; never merge them into the confirmed list silently.
 
-If the user can't supply brand context and won't set up Cowork, stop and
-tell them content generation later in the pipeline will default to a
-neutral, evidence-led tone inferred from the live site itself — confirm
-that's acceptable before continuing.
+### 3. Categorize matches
 
-### 2. Diff the live site against Cowork's record
+Sort matches (title matches first, then full-text-only) into buckets by
+title keywords:
 
-Fetch the live URL (use WebFetch or the Firecrawl scrape/map tools) and
-compare against what Cowork has on file:
+- **Brand & Voice** — "brand", "voice", "tone", "style guide"
+- **Positioning / T.O.P.** — "T.O.P", "TOP Audit", "positioning"
+- **SEO Action Plan** — "SEO Action Plan", "action plan"
+- **Technical Audit** — "technical audit", "site audit"
+- **Analytics / GSC** — "GSC", "search console", "analytics"
+- **Backlinks** — "backlink", "disavow"
+- **Content Calendar** — "content calendar"
+- **Status / Snapshot** — "status", "clean sheet", "snapshot" (often the
+  most recent consolidated view — prioritize reading this one if present)
+- **Other** — anything else that matched but doesn't fit above
 
-- New pages, services, or products not reflected in Cowork's context
+De-duplicate obvious repeats (same title, multiple IDs, e.g. an "(old)"
+export sitting alongside a live sheet) — keep the most recently modified and
+note the duplicate rather than silently dropping it.
+
+### 4. Show the user a grouped list and wait for confirmation
+
+Present the categorized list (title, last modified date, and which bucket)
+and explicitly flag:
+- Which expected categories have **no match** — most importantly **Brand &
+  Voice**, since content generation later needs it.
+- Anything sitting in the "possible, unconfirmed" full-text-only bucket.
+
+Ask: **"Is this the right client, and should I use these files?"** Do not
+read full file contents or proceed to building the brief until the user
+confirms. If they say a match is wrong (wrong client, stale duplicate,
+irrelevant), drop it and don't use it.
+
+### 5. Handle a missing Brand & Voice doc
+
+If no Brand & Voice document was found (and confirmed), **always ask the
+user directly** for brand voice/tone, audience, and positioning before
+continuing — do not infer it silently from other audit docs, and do not
+block the whole pipeline waiting for one to be created. Record whatever the
+user gives you in the brief, and note that it came from the user directly
+rather than an existing document.
+
+### 6. Read the confirmed files and extract
+
+For each confirmed file, use `read_file_content` (or `download_file_content`
+for non-native formats) to pull:
+- Brand name, voice/tone, audience/ICP, products/services (from Brand &
+  Voice / T.O.P. docs, or from the user per step 5)
+- Prior findings: technical issues, backlink status, keyword/traffic
+  snapshot, AI-visibility notes — anything a "Status/Snapshot" doc
+  summarizes is usually the fastest way to get this
+- Existing content inventory (titles/URLs), if a content calendar or audit
+  lists them
+- Competitors already on file, if noted anywhere
+
+### 7. Diff the live site
+
+Fetch the live URL (WebFetch or Firecrawl scrape/map) and compare against
+the most recent Status/Snapshot doc, if one was found:
+- New pages, services, or products not reflected in the snapshot
 - Changed pricing, positioning, or messaging
 - New or removed blog/resource content
-- Structural changes (nav, categories) that suggest new topic areas
+- Issues the snapshot flagged as "needs fix" — check if they're still live
+  (the Island Route example above is a real case of this: a fix marked
+  "COMPLETE" in a tracker but not actually deployed)
 
-Summarize differences in a short "what's changed" list. If Cowork has no
-prior snapshot to diff against (new project), skip the diff and just record
-the current state as the baseline.
+If no prior snapshot exists, skip the diff and record the current state as
+the baseline.
 
-### 3. Write the client brief
+### 8. Write the client brief
 
-Save `output/<client-slug>/client-brief.md` containing:
-- Client name, URL, Cowork project link/name (if any)
-- Brand voice/tone summary
-- Audience/ICP
-- Products/services
+Save `output/<client-slug>/client-brief.md`:
+- Client name, URL
+- Source documents used (title + Drive link for each)
+- Brand voice/tone, audience/ICP, products/services
 - Competitors on file
-- Existing content inventory (titles + URLs, if available)
-- Site diff findings from step 2 (or "no prior snapshot — baseline recorded")
-- Any assumptions made because information was missing
+- Existing content inventory
+- Prior findings relevant to new content (avoid topics/claims that
+  contradict a known unresolved issue, e.g. don't write a post pointing to a
+  broken page)
+- Live-site diff findings from step 7 (or "no prior snapshot — baseline
+  recorded")
+- Any info gathered directly from the user because no document had it
 
 Use `<client-slug>` = the client name, lowercased, spaces to hyphens.
 
 ## Output
 
-`output/<client-slug>/client-brief.md` — this feeds every later phase.
-Report to the user: whether Cowork was found or created, and a one-line
-summary of what changed on the live site (or "no changes detected").
+`output/<client-slug>/client-brief.md`. Report to the user: which documents
+were used, what (if anything) came from them directly instead of a
+document, and a one-line summary of the live-site diff.

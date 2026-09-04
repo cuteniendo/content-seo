@@ -7,10 +7,13 @@ User: "Create blog content for acme.com, 20 posts"
 [blog-content-pipeline]  (orchestrator — reads count, delegates below)
         │
         ▼
-[1] client-intake ────────────► Cowork project exists?
-        │                         ├─ yes → pull brand/audience/content context
-        │                         └─ no  → offer setup-cowork, or ask user directly
-        │                       Diff live site vs. Cowork's last snapshot
+[1] client-intake ────────────► Derive name variants from URL
+        │                       Search Drive: title-match first, full-text
+        │                       second (kept as "unconfirmed")
+        │                       Show grouped matches → user confirms
+        │                         ├─ Brand & Voice found → use it
+        │                         └─ not found → ask user directly (no block)
+        │                       Diff live site vs. latest snapshot doc found
         ▼
    output/<client>/client-brief.md
         │
@@ -55,8 +58,9 @@ User: "Create blog content for acme.com, 20 posts"
 
 ## Decision points that require the user
 
-- **Phase 1**: whether a Cowork project exists, and (if none) whether to
-  create one vs. proceed on info given directly in chat.
+- **Phase 1**: confirm the grouped Drive match list is the right client
+  before any file content is read or used; supply brand voice/tone directly
+  if no Brand & Voice doc was found.
 - **Phase 6**: whether to overwrite an existing delivery folder for the same
   client/date.
 

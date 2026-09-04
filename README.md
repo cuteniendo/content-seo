@@ -38,8 +38,8 @@ after editing a draft by hand).
 
 - Claude Code with this repo cloned/available in the working directory.
 - A DataForSEO MCP connection authorized for keyword data.
+- A Google Drive MCP connection authorized for client document lookups.
 - The `content-qa-checker-v2` skill available (ships with this account).
-- Access to Cowork (Claude Projects) for client context lookups.
 
 ## Setup
 
@@ -73,12 +73,15 @@ blog-content-pipeline/
 ## Notes / assumptions
 
 - "Cowork" is the **Projects** list under the **Chat and Cowork** tab in the
-  Claude desktop app — each client has (or gets) its own project card, often
-  named `<Client> - <URL>`, whose description and pinned content are the
-  brand/audience source of truth. There's no MCP/API access to that list
-  from a Code-tab session, so Phase 1 has you open the matching project and
-  paste its relevant content into chat, or uses the `setup-cowork` skill to
-  create a new one following the same naming convention.
+  Claude desktop app, but there's no MCP/API access to that list from a
+  Code-tab session. In practice, the real per-client research (audits,
+  action plans, content calendars) lives in **Google Drive**, named per
+  client but not foldered per client — so Phase 1 searches Drive by client
+  name/URL instead of browsing a project. See
+  [skills/01-client-intake](skills/01-client-intake/SKILL.md) for the exact
+  matching and confirmation flow. If a client's context turns out to live
+  only inside a Cowork project's native knowledge (not Drive), you'll need
+  to paste it in manually — the skill will tell you when nothing turns up.
 - Keyword data comes from DataForSEO (already connected), not SE Ranking.
   Swap [skills/02-keyword-research](skills/02-keyword-research/SKILL.md) if
   you later authorize a different provider.
