@@ -50,6 +50,7 @@ from docx.oxml.ns import qn
 
 DEFAULT_PROFILE = {
     "page_margin_in": 1.0,
+    "line_spacing": 1.15,
     "h1": {"font": "Calibri", "size": 20, "bold": True, "color": None, "space_before": 0, "space_after": 6},
     "h2": {"font": "Calibri", "size": 16, "bold": True, "color": None, "space_before": 18, "space_after": 6},
     "h3": {"font": "Calibri", "size": 14, "bold": True, "color": None, "space_before": 16, "space_after": 4},
@@ -76,6 +77,7 @@ DEFAULT_PROFILE = {
 # user before treating it as one.
 ACS_PROFILE = {
     "page_margin_in": 1.0,
+    "line_spacing": 1.15,
     "h1": {"font": "Arial", "size": 20, "bold": True, "color": RGBColor(0x00, 0x00, 0x00), "space_before": 20, "space_after": 6},
     "h2": {"font": "Arial", "size": 16, "bold": True, "color": RGBColor(0x00, 0x00, 0x00), "space_before": 18, "space_after": 6},
     "h3": {"font": "Arial", "size": 14, "bold": True, "color": RGBColor(0x43, 0x43, 0x43), "space_before": 16, "space_after": 4},
@@ -121,9 +123,15 @@ def strip_pipeline_footer(body):
 
 def apply_role(run, role):
     run.font.name = role["font"]
-    # East Asian font element must also be set or Word can silently fall
-    # back to a theme font for some glyphs.
-    run.font.element.rPr.rFonts.set(qn('w:eastAsia'), role["font"])
+    # python-docx's font.name setter only writes the ascii/hAnsi rFonts
+    # slots. eastAsia and cs (complex script) are separate slots that some
+    # renderers (Google Docs' docx import among them) consult instead of
+    # falling back to ascii/hAnsi — leaving them unset is how a correctly
+    # -specified font can still render as something else entirely in a
+    # given viewer. Set all four explicitly, always.
+    rFonts = run.font.element.rPr.rFonts
+    rFonts.set(qn('w:eastAsia'), role["font"])
+    rFonts.set(qn('w:cs'), role["font"])
     run.font.size = Pt(role["size"])
     run.bold = role.get("bold", False)
     if role.get("color") is not None:
@@ -180,9 +188,17 @@ def build_doc(md_path, out_path, is_draft, profile_name="default"):
         section.top_margin = Inches(profile["page_margin_in"])
         section.bottom_margin = Inches(profile["page_margin_in"])
 
+    # Set line_spacing and alignment once on Normal — every paragraph in
+    # this script is created via add_paragraph() (never a named Heading
+    # style), so all of them inherit from Normal unless overridden below.
+    # This is what the reference doc's line-height:1.15 actually maps to;
+    # it was missing entirely before, which is a real, visible gap (text
+    # reads more cramped than the reference at Word's default spacing).
     normal = doc.styles['Normal']
     normal.font.name = body_role["font"]
     normal.font.size = Pt(body_role["size"])
+    normal.paragraph_format.line_spacing = profile["line_spacing"]
+    normal.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.LEFT
 
     if is_draft:
         p = doc.add_paragraph()
