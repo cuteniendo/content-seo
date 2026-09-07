@@ -62,13 +62,16 @@ DEFAULT_PROFILE = {
 
 # Captured 2026-09-07 from the client's own example doc ("ACS September
 # Blog: How to Build Credit From Scratch in Australia", Google Doc HTML
-# export) via Drive. Headings are Arial; all body/meta/link text is
-# Montserrat — a deliberate pairing, not a mistake, so don't "fix" it to
-# one font. H3 uses a lighter gray (#434343) specifically to subordinate
-# it under H2's pure black. Body paragraphs carry no extra paragraph
-# spacing (space_after: 0) — this client's real doc is visually tight,
-# single-spaced, relying only on the paragraph break itself for
-# separation; do not add a spacing value that "looks nicer" instead.
+# export) via Drive. That specific doc actually used Arial for headings
+# and Montserrat for body/links — but the user reviewed the reference
+# material again on 2026-09-09 and confirmed the real standard is Arial
+# throughout, calling the Montserrat body text in that one example doc
+# an error on their end, not the intended house style. Trust that
+# explicit correction over what one example file happened to contain.
+# H3 keeps a lighter gray (#434343) to subordinate it under H2's pure
+# black — that wasn't part of the font correction. Body paragraphs carry
+# no extra paragraph spacing (space_after: 0) — tight, single-spaced,
+# relying only on the paragraph break itself; this also wasn't disputed.
 #
 # NOT included: a gold (#B8862E) accent color found in the source doc.
 # It was attached to an internal "Other Website Similar Blogs" research
@@ -81,8 +84,8 @@ ACS_PROFILE = {
     "h1": {"font": "Arial", "size": 20, "bold": True, "color": RGBColor(0x00, 0x00, 0x00), "space_before": 20, "space_after": 6},
     "h2": {"font": "Arial", "size": 16, "bold": True, "color": RGBColor(0x00, 0x00, 0x00), "space_before": 18, "space_after": 6},
     "h3": {"font": "Arial", "size": 14, "bold": True, "color": RGBColor(0x43, 0x43, 0x43), "space_before": 16, "space_after": 4},
-    "body": {"font": "Montserrat", "size": 10.5, "bold": False, "color": RGBColor(0x00, 0x00, 0x00), "space_before": 0, "space_after": 0},
-    "link": {"font": "Montserrat", "size": 10.5, "bold": False, "color": RGBColor(0x05, 0x63, 0xC1)},
+    "body": {"font": "Arial", "size": 10.5, "bold": False, "color": RGBColor(0x00, 0x00, 0x00), "space_before": 0, "space_after": 0},
+    "link": {"font": "Arial", "size": 10.5, "bold": False, "color": RGBColor(0x05, 0x63, 0xC1)},
     "bullet_space_before": 12,
     "bullet_space_after": 12,
 }
