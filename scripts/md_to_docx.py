@@ -164,6 +164,44 @@ def add_inline_runs(paragraph, text, role, link_role, base_italic=False):
         apply_role(r, role)
         r.italic = base_italic
 
+def is_block_start(stripped):
+    """True if a line starts a new block (heading/list item/etc.) rather
+    than continuing the previous one via markdown's soft line-wrap."""
+    if not stripped:
+        return True
+    if stripped.startswith('# ') or stripped.startswith('## '):
+        return True
+    if re.match(r'^\d+\.\s+', stripped):
+        return True
+    if stripped.startswith('- '):
+        return True
+    if stripped.startswith('**') and stripped.endswith('**') and stripped.count('**') == 2:
+        return True
+    if stripped.startswith('*') and stripped.endswith('*') and not stripped.startswith('**'):
+        return True
+    return False
+
+def consume_wrapped_text(lines, i, first_line_text):
+    """Markdown authors wrap long paragraphs/list items across multiple
+    physical lines with no blank line between them (standard soft-wrap
+    style) — the file itself, and its intent, is ONE paragraph. Reading
+    line-by-line and treating each physical line as its own Word paragraph
+    is a real bug, not a style choice: it breaks list hanging-indents
+    (continuation lines fall out of the bullet entirely) and silently
+    multiplies paragraph breaks throughout the whole document, which is
+    very likely more visually disruptive than any font or spacing setting.
+    Join every following line into this block until a blank line or the
+    start of a new block (heading/list item/etc.) is hit."""
+    parts = [first_line_text]
+    j = i + 1
+    while j < len(lines):
+        nxt = lines[j].strip()
+        if is_block_start(nxt):
+            break
+        parts.append(nxt)
+        j += 1
+    return ' '.join(parts), j
+
 def styled_heading(doc, text, role):
     p = doc.add_paragraph()
     p.paragraph_format.space_before = Pt(role["space_before"])
@@ -267,38 +305,39 @@ def build_doc(md_path, out_path, is_draft, profile_name="default"):
 
         m_num = re.match(r'^(\d+)\.\s+(.*)$', stripped)
         if m_num:
+            text, i = consume_wrapped_text(lines, i, m_num.group(2))
             p = doc.add_paragraph(style='List Number')
-            add_inline_runs(p, m_num.group(2), body_role, link_role)
-            i += 1
+            add_inline_runs(p, text, body_role, link_role)
             continue
 
         if stripped.startswith('- '):
+            text, i = consume_wrapped_text(lines, i, stripped[2:])
             p = doc.add_paragraph(style='List Bullet')
             p.paragraph_format.space_before = Pt(profile["bullet_space_before"])
             p.paragraph_format.space_after = Pt(profile["bullet_space_after"])
-            add_inline_runs(p, stripped[2:], body_role, link_role)
-            i += 1
+            add_inline_runs(p, text, body_role, link_role)
             continue
 
         # FAQ question: standalone "**Question?**" -> rendered as H3, to
         # match a client doc that uses real H3s for FAQ questions rather
-        # than bolded body paragraphs.
+        # than bolded body paragraphs. (Questions are short enough in
+        # practice not to wrap, but handle it anyway for consistency.)
         if faq_mode and stripped.startswith('**') and stripped.endswith('**') and stripped.count('**') == 2:
-            styled_heading(doc, stripped[2:-2], h3)
-            i += 1
+            text, i = consume_wrapped_text(lines, i, stripped[2:-2])
+            styled_heading(doc, text, h3)
             continue
 
         if stripped.startswith('*') and stripped.endswith('*') and not stripped.startswith('**'):
+            text, i = consume_wrapped_text(lines, i, stripped[1:-1])
             p = doc.add_paragraph()
-            add_inline_runs(p, stripped[1:-1], body_role, link_role, base_italic=True)
-            i += 1
+            add_inline_runs(p, text, body_role, link_role, base_italic=True)
             continue
 
+        text, i = consume_wrapped_text(lines, i, stripped)
         p = doc.add_paragraph()
         p.paragraph_format.space_before = Pt(body_role["space_before"])
         p.paragraph_format.space_after = Pt(body_role["space_after"])
-        add_inline_runs(p, stripped, body_role, link_role)
-        i += 1
+        add_inline_runs(p, text, body_role, link_role)
 
     doc.save(out_path)
     print(f"Saved: {out_path} (profile: {profile_name})")
