@@ -91,3 +91,11 @@ blog-content-pipeline/
   you later authorize a different provider.
 - `output/` is per-client and gitignored — it's meant to sync to each
   client's local folder, not to live in this repo.
+
+## Contributing / repo protection
+
+`main` is protected: changes go through a pull request with required
+review from `CODEOWNERS` on `skills/` and `scripts/`, not direct pushes.
+This is deliberate — the repo is operated via a shared Claude account, and
+this ensures no change to the pipeline lands without the owner reviewing
+it first. See `.github/CODEOWNERS`.
