@@ -45,9 +45,23 @@ check before assuming the `docx` skill's usual node/LibreOffice tooling is
 installed; on a fresh machine it often isn't):
 
 ```
-python scripts/md_to_docx.py <source.md> <dest.docx> final   # approved posts
-python scripts/md_to_docx.py <source.md> <dest.docx> draft   # anything not fully QA'd yet
+python scripts/md_to_docx.py <source.md> <dest.docx> final <style_profile>
+python scripts/md_to_docx.py <source.md> <dest.docx> draft <style_profile>   # anything not fully QA'd yet
 ```
+
+**Check `client-brief.md` for a style profile before using the generic
+default.** If the client has supplied (or referenced) an example document
+showing their exact desired formatting, a profile should already exist in
+`scripts/md_to_docx.py`'s `STYLE_PROFILES` keyed by client slug (see
+`australian-credit-savers` for a worked example) — pass it as the 4th
+argument. If the client brief mentions a reference doc but no profile
+exists yet for them, capture one first (the script's own docstring walks
+through the process: export the reference doc's HTML via Drive, extract
+real font/size/color values per element — headings and body copy are
+often different fonts, don't conflate them — and watch for colors
+attached to internal/research content that aren't actually a deliberate
+brand choice). Don't guess a client's fonts/colors/spacing from the brief
+alone if a reference document exists to check against directly.
 
 Use `draft` mode for anything landing in `drafts-in-progress/` — it adds a
 visible warning banner and the front matter's status/confidence notes, so
