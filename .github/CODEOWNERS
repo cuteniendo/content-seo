@@ -1,0 +1,7 @@
+# Require review from the repo owner before changes to the pipeline
+# itself can be merged. Only takes effect once branch protection on
+# `main` requires code owner review — see repo Settings > Branches.
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+/skills/   @cuteniendo
+/scripts/  @cuteniendo
