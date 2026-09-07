@@ -323,11 +323,25 @@ def build_doc(md_path, out_path, is_draft, profile_name="default"):
 
         # FAQ question: standalone "**Question?**" -> rendered as H3, to
         # match a client doc that uses real H3s for FAQ questions rather
-        # than bolded body paragraphs. (Questions are short enough in
-        # practice not to wrap, but handle it anyway for consistency.)
+        # than bolded body paragraphs.
+        #
+        # Deliberately NOT using consume_wrapped_text here, unlike every
+        # other block type. In every real draft, a "**Question?**" line is
+        # followed immediately by its answer paragraph with NO blank line
+        # between them (that's how Phase 4 writes FAQ sections) -- and
+        # is_block_start() has no way to tell "a fresh answer paragraph
+        # starting right after a heading" apart from "a wrapped
+        # continuation line of that heading", since both are just plain
+        # text with no special markdown marker. Consuming continuation
+        # lines here silently swallowed the entire answer into the
+        # question's H3 styling -- a real, confirmed bug (screenshot:
+        # question and answer rendered as one merged, wrongly-styled
+        # block). FAQ questions in these drafts are always single short
+        # lines, so take exactly one line and stop; the answer is then
+        # correctly picked up as its own paragraph on the next loop pass.
         if faq_mode and stripped.startswith('**') and stripped.endswith('**') and stripped.count('**') == 2:
-            text, i = consume_wrapped_text(lines, i, stripped[2:-2])
-            styled_heading(doc, text, h3)
+            styled_heading(doc, stripped[2:-2], h3)
+            i += 1
             continue
 
         if stripped.startswith('*') and stripped.endswith('*') and not stripped.startswith('**'):
