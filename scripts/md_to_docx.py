@@ -205,8 +205,17 @@ def consume_wrapped_text(lines, i, first_line_text):
         j += 1
     return ' '.join(parts), j
 
-def styled_heading(doc, text, role):
-    p = doc.add_paragraph()
+def styled_heading(doc, text, role, level):
+    # Apply the actual named Word style ("Heading N"), not just matching
+    # visual size/color/weight via direct formatting. Word's Navigation
+    # Pane, the Style dropdown, TOC generation, and accessibility/screen
+    # -reader structure all key off the named style, not appearance --
+    # confirmed missing entirely (every heading was reading as "Normal"
+    # style) even though the visual formatting was already correct.
+    # Word's built-in Heading N styles carry their own default font/size/
+    # color (usually a Calibri Light theme font), so still override the
+    # run directly afterward to match the captured profile exactly.
+    p = doc.add_paragraph(style=f'Heading {level}')
     p.paragraph_format.space_before = Pt(role["space_before"])
     p.paragraph_format.space_after = Pt(role["space_after"])
     r = p.add_run(text)
@@ -295,14 +304,14 @@ def build_doc(md_path, out_path, is_draft, profile_name="default"):
             continue
 
         if stripped.startswith('# '):
-            styled_heading(doc, stripped[2:], h1)
+            styled_heading(doc, stripped[2:], h1, 1)
             i += 1
             continue
 
         if stripped.startswith('## '):
             heading_text = stripped[3:]
             faq_mode = (heading_text.strip().upper() == 'FAQ')
-            styled_heading(doc, heading_text, h2)
+            styled_heading(doc, heading_text, h2, 2)
             i += 1
             continue
 
@@ -340,7 +349,7 @@ def build_doc(md_path, out_path, is_draft, profile_name="default"):
         # lines, so take exactly one line and stop; the answer is then
         # correctly picked up as its own paragraph on the next loop pass.
         if faq_mode and stripped.startswith('**') and stripped.endswith('**') and stripped.count('**') == 2:
-            styled_heading(doc, stripped[2:-2], h3)
+            styled_heading(doc, stripped[2:-2], h3, 3)
             i += 1
             continue
 
