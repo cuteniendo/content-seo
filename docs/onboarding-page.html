@@ -1,0 +1,458 @@
+<title>Blog Content Pipeline</title>
+<style>
+  :root {
+    --ground: #f1eee4;
+    --surface: #fbfaf5;
+    --surface-2: #e9e5d7;
+    --ink: #1e2320;
+    --ink-muted: #6b6656;
+    --rule: #ddd6c2;
+    --accent: #a6641c;
+    --accent-ink: #fdf6ec;
+    --accent-soft: #ecdcc3;
+    --status-ok-bg: #dfe8de;
+    --status-ok-fg: #2f5c3f;
+    --status-blocked-bg: #f1dcd9;
+    --status-blocked-fg: #8b3a3a;
+    --status-wait-bg: #e4e0cd;
+    --status-wait-fg: #7a6a2e;
+    --status-info-bg: #dbe4e6;
+    --status-info-fg: #35586b;
+    --shadow-card: 0 1px 0 var(--rule);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #181a16;
+      --surface: #202219;
+      --surface-2: #2a2c21;
+      --ink: #ece7d8;
+      --ink-muted: #a49d87;
+      --rule: #3a3527;
+      --accent: #d59240;
+      --accent-ink: #201304;
+      --accent-soft: #3a2c14;
+      --status-ok-bg: #223226;
+      --status-ok-fg: #8fc79e;
+      --status-blocked-bg: #3a2320;
+      --status-blocked-fg: #e0928c;
+      --status-wait-bg: #33301e;
+      --status-wait-fg: #d8c775;
+      --status-info-bg: #1f2c30;
+      --status-info-fg: #8fbcce;
+      --shadow-card: 0 1px 0 var(--rule);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #181a16;
+    --surface: #202219;
+    --surface-2: #2a2c21;
+    --ink: #ece7d8;
+    --ink-muted: #a49d87;
+    --rule: #3a3527;
+    --accent: #d59240;
+    --accent-ink: #201304;
+    --accent-soft: #3a2c14;
+    --status-ok-bg: #223226;
+    --status-ok-fg: #8fc79e;
+    --status-blocked-bg: #3a2320;
+    --status-blocked-fg: #e0928c;
+    --status-wait-bg: #33301e;
+    --status-wait-fg: #d8c775;
+    --status-info-bg: #1f2c30;
+    --status-info-fg: #8fbcce;
+    --shadow-card: 0 1px 0 var(--rule);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+  }
+
+  .sheet {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 56px 32px 96px;
+  }
+
+  @media (max-width: 640px) {
+    .sheet { padding: 36px 18px 64px; }
+  }
+
+  /* ---------- Header ---------- */
+
+  .masthead {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 18px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+
+  .masthead .kicker {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+
+  h1 {
+    font-family: "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif;
+    font-weight: 700;
+    font-size: clamp(2rem, 4vw, 2.6rem);
+    letter-spacing: -0.01em;
+    margin: 6px 0 0;
+    text-wrap: balance;
+  }
+
+  .repo-tag {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--ink-muted);
+    align-self: flex-end;
+    white-space: nowrap;
+  }
+
+  .repo-tag a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; }
+  .repo-tag a:hover, .repo-tag a:focus-visible { border-bottom-color: var(--accent); }
+
+  .dek {
+    max-width: 62ch;
+    color: var(--ink-muted);
+    font-size: 1.05rem;
+    margin: 18px 0 44px;
+  }
+
+  section { margin-bottom: 56px; }
+
+  .section-label {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .section-label .num {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  h2 {
+    font-family: "IBM Plex Sans Condensed", sans-serif;
+    font-weight: 700;
+    font-size: 1.5rem;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  p { max-width: 66ch; }
+
+  code, .mono {
+    font-family: "IBM Plex Mono", monospace;
+  }
+
+  /* ---------- Phase board ---------- */
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+  }
+
+  @media (max-width: 720px) {
+    .board { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 480px) {
+    .board { grid-template-columns: 1fr; }
+  }
+
+  .station {
+    background: var(--surface);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 180px;
+  }
+
+  .station .stnum {
+    font-family: "IBM Plex Mono", monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .station h3 {
+    font-family: "IBM Plex Sans Condensed", sans-serif;
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .station p {
+    font-size: 0.9rem;
+    color: var(--ink-muted);
+    margin: 0;
+    flex-grow: 1;
+  }
+
+  .trigger {
+    display: block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    background: var(--surface-2);
+    color: var(--ink);
+    padding: 8px 10px;
+    border-left: 3px solid var(--accent);
+    line-height: 1.4;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  /* ---------- Start sequence ---------- */
+
+  .terminal {
+    background: var(--ink);
+    color: var(--ground);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13.5px;
+    line-height: 1.9;
+    padding: 22px 24px;
+    overflow-x: auto;
+    border-radius: 3px;
+  }
+
+  .terminal .step-n {
+    color: var(--accent);
+    display: inline-block;
+    width: 1.6em;
+  }
+
+  .terminal .cmd { color: var(--ground); }
+  .terminal .comment { color: var(--ink-muted); }
+
+  /* ---------- Requirements ---------- */
+
+  .checklist {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+  }
+
+  .checklist li {
+    background: var(--surface);
+    padding: 12px 16px;
+    display: flex;
+    gap: 12px;
+    align-items: baseline;
+    font-size: 0.95rem;
+  }
+
+  .checklist .mark {
+    font-family: "IBM Plex Mono", monospace;
+    color: var(--accent);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  /* ---------- Approval flow ---------- */
+
+  .flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin: 22px 0 28px;
+  }
+
+  .pill {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  .pill.wait { background: var(--status-wait-bg); color: var(--status-wait-fg); }
+  .pill.blocked { background: var(--status-blocked-bg); color: var(--status-blocked-fg); }
+  .pill.info { background: var(--status-info-bg); color: var(--status-info-fg); }
+  .pill.ok { background: var(--status-ok-bg); color: var(--status-ok-fg); }
+
+  .flow .arrow {
+    color: var(--ink-muted);
+    font-size: 14px;
+  }
+
+  .rule-card {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--status-blocked-fg);
+    padding: 16px 20px;
+    font-size: 0.92rem;
+    color: var(--ink-muted);
+    max-width: 66ch;
+  }
+
+  .rule-card strong { color: var(--ink); }
+
+  /* ---------- Footer ---------- */
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 20px;
+    font-size: 0.85rem;
+    color: var(--ink-muted);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .station { transition: background 0.15s ease; }
+  }
+</style>
+
+<div class="sheet">
+
+  <div class="masthead">
+    <div>
+      <div class="kicker">Internal reference &middot; content operations</div>
+      <h1>Blog Content Pipeline</h1>
+    </div>
+    <div class="repo-tag">repo: <a href="https://github.com/cuteniendo/content-seo">cuteniendo/content-seo</a></div>
+  </div>
+
+  <p class="dek">
+    Six Claude Skills that take a client from a live URL to QA&#8209;checked,
+    Word&#8209;ready blog drafts. No slash commands to memorize &mdash; you
+    trigger it by describing what you want in plain language, the same way
+    you'd ask a colleague.
+  </p>
+
+  <section>
+    <div class="section-label"><span class="num">01</span><h2>The six stations</h2></div>
+    <p style="margin-bottom:18px;">Each phase is its own skill and can run standalone &mdash; useful for re&#8209;doing just one step, like re&#8209;running QA after a hand edit.</p>
+    <div class="board">
+      <div class="station">
+        <span class="stnum">1 &middot; Intake</span>
+        <h3>Client Intake</h3>
+        <p>Opens the client's Cowork project in Chrome, reads Instructions, Memory and knowledge files.</p>
+        <code class="trigger">"find the project context
+for Island Route"</code>
+      </div>
+      <div class="station">
+        <span class="stnum">2 &middot; Research</span>
+        <h3>Keyword Research</h3>
+        <p>Pulls ranking and opportunity keywords for the domain via DataForSEO.</p>
+        <code class="trigger">"keyword research for
+australiancreditsavers.com.au"</code>
+      </div>
+      <div class="station">
+        <span class="stnum">3 &middot; Cluster</span>
+        <h3>Keyword Clustering</h3>
+        <p>Groups the keyword list into one topic per planned post &mdash; reports a shortfall rather than padding it.</p>
+        <code class="trigger">"cluster these keywords"</code>
+      </div>
+      <div class="station">
+        <span class="stnum">4 &middot; Draft</span>
+        <h3>Content Generation</h3>
+        <p>Writes one full post per cluster, in the client's own brand voice and word&#8209;count rules.</p>
+        <code class="trigger">"write the blog posts
+for these clusters"</code>
+      </div>
+      <div class="station">
+        <span class="stnum">5 &middot; Check</span>
+        <h3>QA Review</h3>
+        <p>Scores every draft, fixes what it can, and holds back anything that still fails.</p>
+        <code class="trigger">"QA these drafts"</code>
+      </div>
+      <div class="station">
+        <span class="stnum">6 &middot; Ship</span>
+        <h3>Delivery</h3>
+        <p>Copies approved posts to a dated client folder on the Desktop, as Markdown and Word, with a manifest.</p>
+        <code class="trigger">"deliver these posts"</code>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-label"><span class="num">02</span><h2>Starting a run</h2></div>
+    <p style="margin-bottom:18px;">The whole sequence is wired to one sentence &mdash; name the client and how many posts, and it runs all six stations in order.</p>
+    <div class="terminal">
+<span class="step-n">1</span><span class="comment"># clone once, reuse after</span><br>
+<span class="step-n"></span><span class="cmd">git clone https://github.com/cuteniendo/content-seo.git</span><br><br>
+<span class="step-n">2</span><span class="comment"># open Claude Code with that folder as the working directory</span><br><br>
+<span class="step-n">3</span><span class="comment"># then just say what you want, e.g.</span><br>
+<span class="step-n"></span><span class="cmd">Run the blog content pipeline for Australian Credit Savers, 10 posts.</span>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-label"><span class="num">03</span><h2>Before you run it</h2></div>
+    <ul class="checklist">
+      <li><span class="mark">&#10003;</span> Claude Code open with this repo as the working directory</li>
+      <li><span class="mark">&#10003;</span> DataForSEO connected (phase 2 &mdash; keyword data)</li>
+      <li><span class="mark">&#10003;</span> Claude in Chrome signed into <em>your own</em> claude.ai account (phase 1 &mdash; reads Cowork/Drive)</li>
+      <li><span class="mark">&#10003;</span> <code class="mono">content-qa-checker-v2</code> skill available (phase 5)</li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="section-label"><span class="num">04</span><h2>Proposing a change to the pipeline itself</h2></div>
+    <p>
+      <code class="mono">main</code> is protected. A change to a skill or to
+      <code class="mono">scripts/</code> can't land by pushing directly &mdash;
+      it goes through a pull request and needs an approving review before it
+      merges. If you ask Claude to push a fix and it bounces, this is why,
+      not a bug:
+    </p>
+    <div class="flow">
+      <span class="pill wait">Awaiting approval</span>
+      <span class="arrow">&rarr;</span>
+      <span class="pill blocked">Merging blocked</span>
+      <span class="arrow">&rarr;</span>
+      <span class="pill info">Reviewed</span>
+      <span class="arrow">&rarr;</span>
+      <span class="pill ok">Merged</span>
+    </div>
+    <div class="rule-card">
+      <strong>Even the repo owner can't approve their own change</strong>
+      &mdash; GitHub blocks self&#8209;approval outright. So: open the PR,
+      describe what changed and what you tested, and ask the owner to
+      review it. This isn't optional friction; it's the whole point &mdash;
+      one accidental edit to a skill file shouldn't be able to change
+      production behavior for every client silently.
+    </div>
+  </section>
+
+  <footer>
+    <span>Built as Claude Skills &middot; run via natural language, not slash commands</span>
+    <span>output/ is per&#8209;client and stays local, never in the repo</span>
+  </footer>
+
+</div>
