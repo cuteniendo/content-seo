@@ -42,7 +42,10 @@ import sys
 from docx import Document
 from docx.shared import Pt, Inches, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.text import WD_UNDERLINE
 from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
+from docx.opc.constants import RELATIONSHIP_TYPE as RT
 
 # --- Style profiles -----------------------------------------------------
 # Each role maps to (font_name, size_pt, bold, color_rgb_or_None).
@@ -103,6 +106,19 @@ STYLE_PROFILES = {
 
 # --- Markdown parsing -----------------------------------------------------
 
+# Matches a markdown table separator row: |---|---|---| or |:--|--:|:-:| etc.
+TABLE_SEPARATOR_RE = re.compile(r'^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?$')
+
+def parse_table_row(line):
+    """Split a markdown table row into cell strings, tolerating a missing
+    leading/trailing pipe."""
+    cells = line.strip()
+    if cells.startswith('|'):
+        cells = cells[1:]
+    if cells.endswith('|'):
+        cells = cells[:-1]
+    return [c.strip() for c in cells.split('|')]
+
 def parse_front_matter(text):
     m = re.match(r'^---\n(.*?)\n---\n(.*)$', text, re.DOTALL)
     if not m:
@@ -145,6 +161,54 @@ def apply_role(run, role):
     if role.get("color") is not None:
         run.font.color.rgb = role["color"]
 
+def add_hyperlink(paragraph, url, text, role):
+    """Add a REAL, clickable Word hyperlink (a w:hyperlink element with an
+    external relationship), not a plain run that merely displays the URL as
+    text. python-docx has no built-in hyperlink API, so this builds the
+    OOXML directly -- the standard, documented pattern for this. Without
+    it, every internal/external link in these posts would render as inert
+    "link text (https://...)" text a reader can't click, which defeats the
+    point of adding real links at all."""
+    part = paragraph.part
+    r_id = part.relate_to(url, RT.HYPERLINK, is_external=True)
+
+    hyperlink = OxmlElement('w:hyperlink')
+    hyperlink.set(qn('r:id'), r_id)
+
+    new_run = OxmlElement('w:r')
+    rPr = OxmlElement('w:rPr')
+
+    rFonts = OxmlElement('w:rFonts')
+    rFonts.set(qn('w:ascii'), role["font"])
+    rFonts.set(qn('w:hAnsi'), role["font"])
+    rFonts.set(qn('w:eastAsia'), role["font"])
+    rFonts.set(qn('w:cs'), role["font"])
+    rPr.append(rFonts)
+
+    sz = OxmlElement('w:sz')
+    sz.set(qn('w:val'), str(int(role["size"] * 2)))
+    rPr.append(sz)
+
+    if role.get("bold"):
+        rPr.append(OxmlElement('w:b'))
+
+    color_el = OxmlElement('w:color')
+    color = role.get("color")
+    color_el.set(qn('w:val'), str(color) if color is not None else '0563C1')
+    rPr.append(color_el)
+
+    u = OxmlElement('w:u')
+    u.set(qn('w:val'), 'single')
+    rPr.append(u)
+
+    new_run.append(rPr)
+    t = OxmlElement('w:t')
+    t.set(qn('xml:space'), 'preserve')
+    t.text = text
+    new_run.append(t)
+    hyperlink.append(new_run)
+    paragraph._p.append(hyperlink)
+
 def add_inline_runs(paragraph, text, role, link_role, base_italic=False):
     pos = 0
     token_re = re.compile(r'\*\*(.+?)\*\*|\[([^\]]+)\]\(([^)]+)\)|\*(.+?)\*')
@@ -159,9 +223,7 @@ def add_inline_runs(paragraph, text, role, link_role, base_italic=False):
             r.bold = True
             r.italic = base_italic
         elif m.group(2) is not None:
-            r = paragraph.add_run(f"{m.group(2)} ({m.group(3)})")
-            apply_role(r, link_role)
-            r.italic = base_italic
+            add_hyperlink(paragraph, m.group(3), m.group(2), link_role)
         elif m.group(4) is not None:
             r = paragraph.add_run(m.group(4))
             apply_role(r, role)
@@ -186,6 +248,8 @@ def is_block_start(stripped):
     if stripped.startswith('**') and stripped.endswith('**') and stripped.count('**') == 2:
         return True
     if stripped.startswith('*') and stripped.endswith('*') and not stripped.startswith('**'):
+        return True
+    if stripped.startswith('|'):
         return True
     return False
 
@@ -364,6 +428,38 @@ def build_doc(md_path, out_path, is_draft, profile_name="default"):
             text, i = consume_wrapped_text(lines, i, stripped[1:-1])
             p = doc.add_paragraph()
             add_inline_runs(p, text, body_role, link_role, base_italic=True)
+            continue
+
+        # Markdown table: a "|"-row immediately followed by a "|---|---|"
+        # separator row. Without this, table rows fell through to the
+        # generic paragraph handler below, and consume_wrapped_text (which
+        # now treats "|" as a block start, so it no longer eats the row
+        # into a preceding paragraph) still had no way to turn pipe-
+        # delimited text into an actual Word table -- every table rendered
+        # as one raw, unreadable line of literal "|" and "-" characters
+        # (confirmed via a real client screenshot). Render it as a real
+        # docx table instead, one column per header cell, first row bold.
+        if stripped.startswith('|') and i + 1 < len(lines) and TABLE_SEPARATOR_RE.match(lines[i + 1].strip()):
+            header_cells = parse_table_row(stripped)
+            n_cols = len(header_cells)
+            rows = [header_cells]
+            j = i + 2
+            while j < len(lines) and lines[j].strip().startswith('|'):
+                rows.append(parse_table_row(lines[j].strip()))
+                j += 1
+            table = doc.add_table(rows=len(rows), cols=n_cols)
+            table.style = 'Light Grid Accent 1'
+            for r_idx, row_cells in enumerate(rows):
+                for c_idx in range(n_cols):
+                    cell_text = row_cells[c_idx] if c_idx < len(row_cells) else ''
+                    cell = table.rows[r_idx].cells[c_idx]
+                    cell.text = ''
+                    cell_role = dict(body_role)
+                    if r_idx == 0:
+                        cell_role['bold'] = True
+                    add_inline_runs(cell.paragraphs[0], cell_text, cell_role, link_role)
+            doc.add_paragraph()
+            i = j
             continue
 
         text, i = consume_wrapped_text(lines, i, stripped)
