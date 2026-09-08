@@ -42,7 +42,8 @@ those exactly, don't average them with the generic defaults here.
 - Logically ordered H2/H3 body sections covering the topic properly, working
   in supporting keywords naturally — never keyword-stuffed
   - only add a comparison table where the topic genuinely calls for one, don't force one into every post
-- A short FAQ section addressing 2-4 real related questions
+- A short "Frequently Asked Questions" section (that's the heading text to
+  use, not the "FAQ" abbreviation) addressing 2-4 real related questions
 - A closing section with a clear CTA relevant to the client's actual
   products/services from the brief — not a generic "contact us"
 - Suggested internal links to existing client pages (from the brief's
@@ -69,9 +70,14 @@ padding — and re-check after expanding, since edits shift the count.
 
 ### 4. Save each draft
 
-Save as `output/<client-slug>/drafts/<post-number>-<slug>.md`, front-matter
-with title, meta description, target keyword, and cluster number, followed
-by the full post body in Markdown.
+Save as `output/<client-slug>/drafts/<post-number>-<slug>.md`, following
+`templates/blog-draft-template.md`'s front matter exactly: `meta_title`,
+`meta_description`, `primary_keyword`, `lsi_secondary_keywords` (the
+cluster's supporting keywords, comma-separated), `suggested_url_slug`, and
+`cluster`, followed by the full post body in Markdown. Phase 6's docx export
+reads these exact field names to build the client-facing meta table — a
+renamed or missing field silently drops that row instead of erroring, so
+match the template's keys precisely.
 
 ## Output
 

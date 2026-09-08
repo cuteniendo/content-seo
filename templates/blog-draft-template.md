@@ -1,7 +1,9 @@
 ---
-title: "{{SEO Title}}"
+meta_title: "{{SEO title, under ~60 characters}}"
 meta_description: "{{Under ~155 characters}}"
-target_keyword: "{{primary keyword}}"
+primary_keyword: "{{primary keyword}}"
+lsi_secondary_keywords: "{{comma-separated supporting/secondary keywords from the cluster}}"
+suggested_url_slug: "{{lowercase-hyphenated-slug}}"
 cluster: {{cluster number}}
 ---
 
@@ -18,7 +20,7 @@ implied question immediately.}}
 
 {{Body...}}
 
-## FAQ
+## Frequently Asked Questions
 
 **{{Question 1}}**
 {{Answer}}

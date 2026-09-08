@@ -51,10 +51,15 @@ from docx.oxml.ns import qn
 DEFAULT_PROFILE = {
     "page_margin_in": 1.0,
     "line_spacing": 1.15,
-    "h1": {"font": "Calibri", "size": 20, "bold": True, "color": None, "space_before": 0, "space_after": 6},
-    "h2": {"font": "Calibri", "size": 16, "bold": True, "color": None, "space_before": 18, "space_after": 6},
-    "h3": {"font": "Calibri", "size": 14, "bold": True, "color": None, "space_before": 16, "space_after": 4},
-    "body": {"font": "Calibri", "size": 11, "bold": False, "color": None, "space_before": 0, "space_after": 0},
+    # h1/h2/h3 color is explicit black, not None: Word's built-in "Heading N"
+    # styles carry their own theme color (a blue accent in the default Office
+    # theme) that shows through whenever a profile doesn't override it. A
+    # client with no captured reference doc should still get plain black
+    # headings, not an arbitrary Word theme color no one chose.
+    "h1": {"font": "Calibri", "size": 20, "bold": True, "color": RGBColor(0x00, 0x00, 0x00), "space_before": 0, "space_after": 6},
+    "h2": {"font": "Calibri", "size": 16, "bold": True, "color": RGBColor(0x00, 0x00, 0x00), "space_before": 18, "space_after": 6},
+    "h3": {"font": "Calibri", "size": 14, "bold": True, "color": RGBColor(0x00, 0x00, 0x00), "space_before": 16, "space_after": 4},
+    "body": {"font": "Calibri", "size": 11, "bold": False, "color": RGBColor(0x00, 0x00, 0x00), "space_before": 0, "space_after": 0},
     "link": {"font": "Calibri", "size": 11, "bold": False, "color": RGBColor(0x05, 0x63, 0xC1)},
     "bullet_space_before": 0,
     "bullet_space_after": 0,
@@ -310,7 +315,9 @@ def build_doc(md_path, out_path, is_draft, profile_name="default"):
 
         if stripped.startswith('## '):
             heading_text = stripped[3:]
-            faq_mode = (heading_text.strip().upper() == 'FAQ')
+            # Match both the full heading and the old "FAQ" abbreviation,
+            # since already-delivered client docs may still use either.
+            faq_mode = heading_text.strip().upper() in ('FAQ', 'FREQUENTLY ASKED QUESTIONS')
             styled_heading(doc, heading_text, h2, 2)
             i += 1
             continue
