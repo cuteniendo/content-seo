@@ -129,6 +129,34 @@ state" notes if no dedicated snapshot doc exists:
 
 If nothing to diff against, record the current state as the baseline.
 
+### 6b. Get the COMPLETE existing content inventory from the sitemap, not the blog listing page
+
+**Never rely on fetching the live `/blog` page for "what's already published."**
+It silently paginates or lazy-loads, and there is no reliable visual signal
+that it did — confirmed as a real, repeated failure: two separate client
+runs both trusted a `/blog` fetch that returned roughly a dozen to twenty
+titles, when the client's actual sitemap showed 75-145+ real posts. Acting
+on the undercounted list produced blog posts that directly duplicated
+existing, already-published content (in one case, a near-exact duplicate
+of an existing "how to create a recruitment video" post), because the
+real competing post was never in the list checked against.
+
+Instead, fetch `<domain>/sitemap.xml` directly (WebFetch or Firecrawl) and
+ask for the **complete, literal list of every URL under `/blog/`** (or
+whatever the client's content path is) — explicitly instruct the fetch not
+to summarize, group, or truncate, since a summarizing fetch can otherwise
+under-report the same way the listing page did. A sitemap can run to
+hundreds of URLs; if the fetch tool truncates its own output, page through
+it (Firecrawl's crawl/map tools, or multiple targeted fetches) rather than
+accepting a partial list as complete.
+
+This full URL list, not the blog page's post titles, is the real "existing
+content inventory" for Phase 3 clustering to check against. Titles are
+often inferable from slugs, but for any topic that looks close to a
+candidate cluster, actually fetch that specific URL and read it (title +
+structure) before concluding it's safe to write something similar — a
+slug can undersell how directly a real page already covers the topic.
+
 ### 7. Write the client brief
 
 Save `output/<client-slug>/client-brief.md`:
@@ -139,8 +167,10 @@ Save `output/<client-slug>/client-brief.md`:
   rules, banned punctuation/phrasing, formatting rules — Memory/Instructions
   often state these explicitly)
 - Competitors on file
-- Existing content inventory / already-planned topics (from step 3.4) —
-  Phase 3 clustering must avoid these
+- Existing content inventory: the **complete** sitemap-derived URL list
+  from step 6b (not a blog-page sample), plus already-planned topics from
+  step 3.4 — Phase 3 clustering must check candidate topics against this
+  full list, not a partial one
 - Known unresolved issues relevant to new content (don't write a post that
   points at something currently broken)
 - Live-site diff findings from step 6
