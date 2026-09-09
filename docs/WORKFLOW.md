@@ -16,6 +16,11 @@ User: "Create blog content for acme.com, 20 posts"
         │                         ├─ voice/tone documented → use it
         │                         └─ not documented → ask user directly
         │                       Diff live site vs. latest snapshot/Memory
+        │                       Fetch <domain>/sitemap.xml directly for the
+        │                       COMPLETE existing content list (6b) — never
+        │                       trust the paginated /blog page, it silently
+        │                       under-counts (caught real clients at
+        │                       17-vs-145 and 20-vs-75 actual post counts)
         ▼
    output/<client>/client-brief.md
         │
@@ -32,6 +37,10 @@ User: "Create blog content for acme.com, 20 posts"
         │   - group into 1 cluster per requested post
         │   - pick highest-value clusters if oversupplied
         │   - report shortfall honestly if undersupplied
+        │   - check every candidate topic against the full sitemap-derived
+        │     content list from step 6b before treating it as safe to write
+        │     (this is what actually catches duplicate-content topics,
+        │     not a post-hoc audit after drafting)
         ▼
    output/<client>/clusters.md
         │
