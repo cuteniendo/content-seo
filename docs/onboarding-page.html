@@ -335,6 +335,81 @@
   @media (prefers-reduced-motion: no-preference) {
     .station { transition: background 0.15s ease; }
   }
+
+  /* ---------- Numbered steps ---------- */
+
+  .steps {
+    list-style: none;
+    counter-reset: step;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+  }
+
+  .steps li {
+    counter-increment: step;
+    background: var(--surface);
+    padding: 12px 16px;
+    display: flex;
+    gap: 14px;
+    align-items: baseline;
+    font-size: 0.95rem;
+  }
+
+  .steps li::before {
+    content: counter(step);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent-ink);
+    background: var(--accent);
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    align-self: center;
+  }
+
+  .badge {
+    display: inline-block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: var(--accent-soft);
+    color: var(--accent);
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-left: 10px;
+    vertical-align: middle;
+  }
+
+  details.alt {
+    margin-top: 18px;
+    border: 1px solid var(--rule);
+    background: var(--surface);
+    padding: 4px 16px;
+  }
+
+  details.alt summary {
+    cursor: pointer;
+    padding: 12px 0;
+    font-size: 0.9rem;
+    color: var(--ink-muted);
+    font-weight: 500;
+  }
+
+  details.alt summary:hover { color: var(--ink); }
+
+  details.alt .terminal { margin: 4px 0 16px; }
 </style>
 
 <div class="sheet">
@@ -401,19 +476,46 @@ for these clusters"</code>
   </section>
 
   <section>
-    <div class="section-label"><span class="num">02</span><h2>Starting a run</h2></div>
-    <p style="margin-bottom:18px;">The whole sequence is wired to one sentence &mdash; name the client and how many posts, and it runs all six stations in order.</p>
-    <div class="terminal">
-<span class="step-n">1</span><span class="comment"># clone once, reuse after</span><br>
+    <div class="section-label"><span class="num">02</span><h2>Getting the files onto your computer<span class="badge">GitHub Desktop</span></h2></div>
+    <p style="margin-bottom:18px;">No terminal, no commands to type. GitHub Desktop is a free app that does the same job as <code class="mono">git clone</code> with buttons instead &mdash; and it's what pulls future updates too, so it's the one setup to learn.</p>
+    <ol class="steps">
+      <li>Go to <a href="https://desktop.github.com">desktop.github.com</a> and download it. Open the installer and click through with the defaults.</li>
+      <li>Open GitHub Desktop &rarr; <strong>File &rarr; Clone Repository</strong>.</li>
+      <li>Click the <strong>URL</strong> tab, then paste: <code class="mono">https://github.com/cuteniendo/content-seo</code></li>
+      <li>Under "Local Path," click <strong>Choose&hellip;</strong> and pick <strong>Desktop</strong>, then click the blue <strong>Clone</strong> button.</li>
+      <li>A folder called <code class="mono">content-seo</code> now sits on the Desktop &mdash; that's the whole pipeline (<code class="mono">skills</code>, <code class="mono">scripts</code>, <code class="mono">templates</code>, this doc, all of it).</li>
+      <li>Whenever the pipeline gets updated later: open GitHub Desktop &rarr; click <strong>Fetch origin</strong>, then <strong>Pull origin</strong> if it offers one. No re-downloading, ever.</li>
+    </ol>
+    <details class="alt">
+      <summary>Prefer a terminal? Same result, one command.</summary>
+      <div class="terminal">
+<span class="step-n">1</span><span class="comment"># from inside the folder you want it saved in, e.g. Desktop</span><br>
 <span class="step-n"></span><span class="cmd">git clone https://github.com/cuteniendo/content-seo.git</span><br><br>
-<span class="step-n">2</span><span class="comment"># open Claude Code with that folder as the working directory</span><br><br>
-<span class="step-n">3</span><span class="comment"># then just say what you want, e.g.</span><br>
-<span class="step-n"></span><span class="cmd">Run the blog content pipeline for Australian Credit Savers, 10 posts.</span>
+<span class="step-n">2</span><span class="comment"># to pull a later update, from inside the content-seo folder</span><br>
+<span class="step-n"></span><span class="cmd">git pull</span>
+      </div>
+    </details>
+  </section>
+
+  <section>
+    <div class="section-label"><span class="num">03</span><h2>Opening it in Claude Code</h2></div>
+    <p style="margin-bottom:18px;">Claude Code needs to know which folder it's working in before it can see any of the skills. When you start a new local session, it'll ask you to pick a folder &mdash; that's the moment this matters.</p>
+    <div class="rule-card" style="border-left-color: var(--accent);">
+      <strong>Select the <code class="mono">content-seo</code> folder itself</strong> &mdash; the one that has <code class="mono">skills</code>, <code class="mono">scripts</code>, and <code class="mono">README.md</code> visible directly inside it once you click into it. Not the Desktop, not a folder above it, not one buried inside it.
+    </div>
+    <p style="margin-top:14px;">Quick way to check you picked correctly: ask Claude <em>"what folders are in here?"</em> If it lists <code class="mono">skills</code>, <code class="mono">scripts</code>, and <code class="mono">templates</code>, the working directory is set right.</p>
+  </section>
+
+  <section>
+    <div class="section-label"><span class="num">04</span><h2>Starting a run</h2></div>
+    <p style="margin-bottom:18px;">Once the folder above is open, the whole sequence is wired to one sentence &mdash; name the client and how many posts, and it runs all six stations in order.</p>
+    <div class="terminal">
+<span class="cmd">Run the blog content pipeline for Australian Credit Savers, 10 posts.</span>
     </div>
   </section>
 
   <section>
-    <div class="section-label"><span class="num">03</span><h2>Before you run it</h2></div>
+    <div class="section-label"><span class="num">05</span><h2>Before you run it</h2></div>
     <ul class="checklist">
       <li><span class="mark">&#10003;</span> Claude Code open with this repo as the working directory</li>
       <li><span class="mark">&#10003;</span> DataForSEO connected (phase 2 &mdash; keyword data)</li>
@@ -423,7 +525,7 @@ for these clusters"</code>
   </section>
 
   <section>
-    <div class="section-label"><span class="num">04</span><h2>Proposing a change to the pipeline itself</h2></div>
+    <div class="section-label"><span class="num">06</span><h2>Proposing a change to the pipeline itself</h2></div>
     <p>
       <code class="mono">main</code> is protected. A change to a skill or to
       <code class="mono">scripts/</code> can't land by pushing directly &mdash;
